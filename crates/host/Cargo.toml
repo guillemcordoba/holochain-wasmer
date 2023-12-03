@@ -3,12 +3,12 @@ name = "holochain_wasmer_host"
 description = "wasm host code"
 license = "Apache-2.0"
 version = "0.0.86"
-authors = [ "thedavidmeister", "thedavidmeister@gmail.com" ]
+authors = ["thedavidmeister", "thedavidmeister@gmail.com"]
 edition = "2021"
 
 [dependencies]
-wasmer = "=4.2.2"
-wasmer-middlewares = "=4.2.2"
+wasmer = "=4.2.4"
+wasmer-middlewares = "=4.2.4"
 holochain_wasmer_common = { version = "=0.0.86", path = "../common" }
 holochain_serialized_bytes = "=0.0.53"
 serde = "1"
@@ -21,7 +21,7 @@ bytes = "1"
 
 [lib]
 name = "holochain_wasmer_host"
-crate-type = [ "cdylib", "rlib" ]
+crate-type = ["cdylib", "rlib"]
 path = "src/host.rs"
 
 [features]

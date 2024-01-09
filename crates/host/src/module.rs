@@ -12,9 +12,11 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
+use wasmer::BaseTunables;
 use wasmer::Engine;
 use wasmer::Instance;
 use wasmer::Module;
+use wasmer::NativeEngineExt;
 use wasmer::Store;
 
 /// We expect cache keys to be produced via hashing so 32 bytes is enough for all
@@ -162,9 +164,17 @@ impl SerializedModuleCache {
         maybe_fs_dir: Option<PathBuf>,
     ) -> Self {
         let compiling_engine = make_compiling_engine;
+        let mut runtime_engine = Engine::default();
+        #[cfg(target_os = "ios")]
+        runtime_engine.set_tunables(BaseTunables {
+            static_memory_bound: 0x4000.into(),
+            static_memory_offset_guard_size: 0x1_0000,
+            dynamic_memory_offset_guard_size: 0x1_0000,
+        });
+
         Self {
             compiling_engine,
-            runtime_engine: Engine::default(),
+            runtime_engine,
             plru: MicroCache::default(),
             key_map: PlruKeyMap::default(),
             cache: BTreeMap::default(),

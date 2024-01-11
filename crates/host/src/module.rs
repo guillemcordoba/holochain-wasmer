@@ -150,12 +150,6 @@ pub fn make_compiler_engine() -> Engine {
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true).push_middleware(metering);
     let mut engine = Engine::from(compiler);
-    #[cfg(target_os = "ios")]
-    engine.set_tunables(BaseTunables {
-        static_memory_bound: 0x4000.into(),
-        static_memory_offset_guard_size: 0x1_0000,
-        dynamic_memory_offset_guard_size: 0x1_0000,
-    });
     engine
 }
 
@@ -241,13 +235,7 @@ impl SerializedModuleCache {
         maybe_fs_dir: Option<PathBuf>,
     ) -> Self {
         let make_compiler_engine = make_compiler_engine;
-        let mut runtime_engine = Engine::headless();
-        #[cfg(target_os = "ios")]
-        runtime_engine.set_tunables(BaseTunables {
-            static_memory_bound: 0x4000.into(),
-            static_memory_offset_guard_size: 0x1_0000,
-            dynamic_memory_offset_guard_size: 0x1_0000,
-        });
+        let runtime_engine = Engine::headless();
 
         Self {
             make_compiler_engine,

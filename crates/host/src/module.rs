@@ -23,6 +23,7 @@ use wasmer::CpuFeature;
 use wasmer::Cranelift;
 use wasmer::DeserializeError;
 use wasmer::Engine;
+use wasmer::EngineBuilder;
 use wasmer::Instance;
 use wasmer::Module;
 use wasmer::NativeEngineExt;
@@ -149,8 +150,24 @@ pub fn make_compiler_engine() -> Engine {
     // the only place where the wasm compiler engine is set
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true).push_middleware(metering);
-    let mut engine = Engine::from(compiler);
+    let engine = Engine::from(compiler);
     engine
+}
+
+/// Generate an engine with a wasm compiler
+/// and Metering (use limits) in place.
+pub fn make_ios_compiler_engine() -> Engine {
+    let cost_function = |_operator: &wasmparser::Operator| -> u64 { 1 };
+    // @todo 100 giga-ops is totally arbitrary cutoff so we probably
+    // want to make the limit configurable somehow.
+    let metering = Arc::new(Metering::new(WASM_METERING_LIMIT, cost_function));
+    // the only place where the wasm compiler engine is set
+    let mut compiler = Cranelift::default();
+    compiler.canonicalize_nans(true).push_middleware(metering);
+    EngineBuilder::new(compiler)
+        .set_target(Some(wasmer_ios_target()))
+        .engine()
+        .into()
 }
 
 /// Generate a runtime `Engine` without compiler suitable for iOS.
@@ -164,7 +181,7 @@ pub fn build_ios_module(wasm: &[u8]) -> Result<Module, CompileError> {
     info!(
         "Found wasm and was instructed to serialize it for ios in wasmer format, doing so now..."
     );
-    let compiler_engine = make_compiler_engine();
+    let compiler_engine = make_ios_compiler_engine();
     let store = Store::new(compiler_engine);
     Module::from_binary(&store, wasm)
 }

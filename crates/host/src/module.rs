@@ -196,10 +196,7 @@ pub fn get_ios_module_from_file(path: &PathBuf) -> Result<Module, DeserializeErr
 /// Deserialize a previously compiled module for iOS from a file.
 pub fn get_ios_module_from_bytes(bytes: &[u8]) -> Result<Module, DeserializeError> {
     let engine = make_ios_runtime_engine();
-    unsafe {
-        let artifact = engine.deserialize(bytes)?;
-        Module::from_artifact(artifact)
-    }
+    unsafe { Module::deserialize(&engine, bytes) }
     // unsafe { Module::deserialize_from_file(&engine, path) }
 }
 

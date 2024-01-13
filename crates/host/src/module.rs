@@ -237,6 +237,12 @@ impl SerializedModuleCache {
         let make_compiler_engine = make_compiler_engine;
         let runtime_engine = Engine::headless();
 
+        #[cfg(target_os = "ios")]
+        runtime_engine.set_tunables(BaseTunables {
+            static_memory_bound: 0x4000.into(),
+            static_memory_offset_guard_size: 0x1_0000,
+            dynamic_memory_offset_guard_size: 0x1_0000,
+        });
         Self {
             make_compiler_engine,
             runtime_engine,
@@ -300,6 +306,7 @@ impl SerializedModuleCache {
                 let mut compiler_engine = (self.make_compiler_engine)();
                 // Workaround for invalid memory access on iOS.
                 // https://github.com/holochain/holochain/issues/3096
+                #[cfg(target_os = "ios")]
                 compiler_engine.set_tunables(BaseTunables {
                     static_memory_bound: 0x4000.into(),
                     static_memory_offset_guard_size: 0x1_0000,

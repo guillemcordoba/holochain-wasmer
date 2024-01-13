@@ -3,7 +3,7 @@ name = "holochain_wasmer_host"
 description = "wasm host code"
 license = "Apache-2.0"
 version = "0.0.91"
-authors = [ "thedavidmeister", "thedavidmeister@gmail.com" ]
+authors = ["thedavidmeister", "thedavidmeister@gmail.com"]
 edition = "2021"
 
 [dependencies]
@@ -21,7 +21,7 @@ hex = "0.4"
 
 [lib]
 name = "holochain_wasmer_host"
-crate-type = [ "cdylib", "rlib" ]
+crate-type = ["cdylib", "rlib"]
 path = "src/host.rs"
 
 [features]

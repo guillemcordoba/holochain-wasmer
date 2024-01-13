@@ -235,7 +235,7 @@ impl SerializedModuleCache {
         maybe_fs_dir: Option<PathBuf>,
     ) -> Self {
         let make_compiler_engine = make_compiler_engine;
-        let runtime_engine = Engine::headless();
+        let mut runtime_engine = Engine::headless();
 
         #[cfg(target_os = "ios")]
         runtime_engine.set_tunables(BaseTunables {

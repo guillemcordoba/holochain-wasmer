@@ -12,6 +12,9 @@ pub use super::wasmer_wamr::*;
 #[cfg(feature = "wasmer_v8")]
 pub use super::wasmer_v8::*;
 
+#[cfg(feature = "wasmer_wasmi")]
+pub use super::wasmer_wasmi::*;
+
 /// Responsible for storing the wasmer Engine used to build wasmer Modules.
 #[derive(Debug)]
 pub struct ModuleBuilder {

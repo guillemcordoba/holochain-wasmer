@@ -21,7 +21,7 @@ extern "C" fn write_cb(_: *mut c_void, message: *const c_char) {
     }));
 }
 
-fn mem_print() {
+pub fn mem_print() {
     unsafe { jemalloc_sys::malloc_stats_print(Some(write_cb), null_mut(), null()) }
 }
 

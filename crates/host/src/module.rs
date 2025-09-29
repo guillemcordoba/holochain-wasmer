@@ -235,7 +235,13 @@ impl ModuleCache {
         // Each module needs to be compiled with a new engine because
         // of middleware like metering. Middleware is compiled into the
         // module once and available in all instances created from it.
+        println!("[MALLOC] before from binary:");
+        crate::guest::mem_print();
+
         let module = self.builder.from_binary(wasm)?;
+
+        println!("[MALLOC] after from binary:");
+        crate::guest::mem_print();
 
         // Round trip the wasmer Module through serialization.
         //
@@ -252,18 +258,32 @@ impl ModuleCache {
         // and stores unnecessary.
         //
         // See https://github.com/wasmerio/wasmer/discussions/3829#discussioncomment-5790763
+
         let serialized_module = module
             .serialize()
             .map_err(|e| wasm_error!(WasmErrorInner::ModuleBuild(e.to_string())))?;
+
+        println!("[MALLOC] after serialize:");
+        crate::guest::mem_print();
+
         let module = self
             .builder
             .from_serialized_module(serialized_module.clone())?;
 
+        println!("[MALLOC] after from_serialized_module:");
+        crate::guest::mem_print();
+
         // Save serialized module to filesystem cache
         self.add_to_filesystem(key, serialized_module)?;
 
+        println!("[MALLOC] after add_to_filesystem:");
+        crate::guest::mem_print();
+
         // Save module to in-memory cache
         self.add_to_cache(key, module.clone());
+
+        println!("[MALLOC] after add_to_cache:");
+        crate::guest::mem_print();
 
         Ok(module)
     }

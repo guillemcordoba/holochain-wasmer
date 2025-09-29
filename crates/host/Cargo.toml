@@ -28,9 +28,7 @@ bytes.workspace = true
 hex.workspace = true
 thiserror.workspace = true
 
-jemallocator = "0.5"
-jemalloc-sys = {version = "0.5", features = ["stats"]}
-libc = "0.2"
+cap = "0.1"
 
 [dev-dependencies]
 tempfile.workspace = true

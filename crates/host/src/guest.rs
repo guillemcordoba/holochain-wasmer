@@ -1,6 +1,8 @@
 use crate::prelude::*;
+use cap::Cap;
 use core::num::TryFromIntError;
 use holochain_serialized_bytes::prelude::*;
+use std::alloc;
 use std::sync::Arc;
 use wasmer::Instance;
 use wasmer::Memory;
@@ -9,20 +11,11 @@ use wasmer::StoreMut;
 use wasmer::Value;
 use wasmer::WasmSlice;
 
-use libc::{c_char, c_void};
-use std::ptr::{null, null_mut};
-
 #[global_allocator]
-static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
 
-extern "C" fn write_cb(_: *mut c_void, message: *const c_char) {
-    print!("[MALLOC] {}", String::from_utf8_lossy(unsafe {
-        std::ffi::CStr::from_ptr(message as *const i8).to_bytes()
-    }));
-}
-
-pub fn mem_print() {
-    unsafe { jemalloc_sys::malloc_stats_print(Some(write_cb), null_mut(), null()) }
+pub fn mem_print(message: &str) {
+    println!("[MALLOC] {message}: {}B", ALLOCATOR.allocated());
 }
 
 /// Write a slice of bytes to the guest in a safe-ish way.
@@ -165,8 +158,7 @@ where
         .map_err(|e: TryFromIntError| wasm_error!(WasmErrorInner::CallError(e.to_string())))?;
     let guest_input_length_value: Value = Value::I32(guest_input_length);
 
-    println!("[MALLOC] Before calling __hc_allocate for:");
-    mem_print();
+    mem_print("Before calling __hc_allocate for");
 
     let (guest_input_ptr, guest_input_ptr_value) = match instance
         .exports
@@ -192,8 +184,7 @@ where
         }
     };
 
-    println!("[MALLOC] Before calling write_bytes for:");
-    mem_print();
+    mem_print("Before calling write_bytes for");
 
     // Write the input payload into the guest at the offset specified by the allocation.
     write_bytes(
@@ -206,8 +197,7 @@ where
         &payload,
     )?;
 
-    println!("[MALLOC] Before call:");
-    mem_print();
+    mem_print("Before call");
 
     // Call the guest function with its own pointer to its input.
     // Collect the guest's pointer to its output.
@@ -250,8 +240,7 @@ where
         },
     };
 
-    println!("[MALLOC] Before from_guest_ptr:");
-    mem_print();
+    mem_print("Before from_guest_ptr");
 
     // We ? here to return early WITHOUT calling deallocate.
     // The host MUST discard any wasm instance that errors at this point to avoid memory leaks.
@@ -266,8 +255,7 @@ where
         len,
     )?;
 
-    println!("[MALLOC] Before deallocate:");
-    mem_print();
+    mem_print("Before deallocate");
 
     // Tell the guest we are finished with the return pointer's data.
     instance
@@ -290,8 +278,7 @@ where
         )
         .map_err(|e| wasm_error!(WasmErrorInner::CallError(format!("{:?}", e))))?;
 
-    println!("[MALLOC] After deallocate:");
-    mem_print();
+    mem_print("After deallocate");
 
     return_value.map_err(|e| WasmHostError(e).into())
 }

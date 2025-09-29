@@ -18,6 +18,10 @@ pub fn mem_print(message: &str) {
     println!("[MALLOC] {message}: {}B", ALLOCATOR.allocated());
 }
 
+pub fn mem_print_for(fn_name: &str, message: &str) {
+    println!("[MALLOC] [{fn_name}] {message}: {}B", ALLOCATOR.allocated());
+}
+
 /// Write a slice of bytes to the guest in a safe-ish way.
 ///
 /// A naive approach would look like this:
@@ -158,7 +162,7 @@ where
         .map_err(|e: TryFromIntError| wasm_error!(WasmErrorInner::CallError(e.to_string())))?;
     let guest_input_length_value: Value = Value::I32(guest_input_length);
 
-    mem_print("Before calling __hc_allocate for");
+    mem_print_for(f, "Before calling __hc_allocate for");
 
     let (guest_input_ptr, guest_input_ptr_value) = match instance
         .exports
@@ -184,7 +188,7 @@ where
         }
     };
 
-    mem_print("Before calling write_bytes for");
+    mem_print_for(f, "Before calling write_bytes for");
 
     // Write the input payload into the guest at the offset specified by the allocation.
     write_bytes(
@@ -197,7 +201,7 @@ where
         &payload,
     )?;
 
-    mem_print("Before call");
+    mem_print_for(f, "Before call");
 
     // Call the guest function with its own pointer to its input.
     // Collect the guest's pointer to its output.
@@ -240,7 +244,7 @@ where
         },
     };
 
-    mem_print("Before from_guest_ptr");
+    mem_print_for(f, "Before from_guest_ptr");
 
     // We ? here to return early WITHOUT calling deallocate.
     // The host MUST discard any wasm instance that errors at this point to avoid memory leaks.
@@ -255,7 +259,7 @@ where
         len,
     )?;
 
-    mem_print("Before deallocate");
+    mem_print_for(f, "Before deallocate");
 
     // Tell the guest we are finished with the return pointer's data.
     instance
@@ -278,7 +282,7 @@ where
         )
         .map_err(|e| wasm_error!(WasmErrorInner::CallError(format!("{:?}", e))))?;
 
-    mem_print("After deallocate");
+    mem_print_for(f, "After deallocate");
 
     return_value.map_err(|e| WasmHostError(e).into())
 }

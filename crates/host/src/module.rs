@@ -8,6 +8,7 @@
 //! 2. When using the feature flag `wasmer_wamr`, modules should be built via the exported build_module function.
 //!    There is no need for caching, as the wasm module is interpreted.
 
+use crate::guest::ALLOCATOR;
 use crate::plru::MicroCache;
 use crate::prelude::*;
 use bimap::BiMap;
@@ -235,11 +236,15 @@ impl ModuleCache {
         // Each module needs to be compiled with a new engine because
         // of middleware like metering. Middleware is compiled into the
         // module once and available in all instances created from it.
-        crate::guest::mem_print("before from binary");
+        let allocated = ALLOCATOR.allocated();
 
         let module = self.builder.from_binary(wasm)?;
-
-        crate::guest::mem_print("after from binary");
+        println!(
+            "[MALLOC] from_binary: before {}B, after {}B, difference {}B",
+            allocated,
+            ALLOCATOR.allocated(),
+            ALLOCATOR.allocated() as isize - allocated as isize
+        );
 
         // Round trip the wasmer Module through serialization.
         //
@@ -261,23 +266,15 @@ impl ModuleCache {
             .serialize()
             .map_err(|e| wasm_error!(WasmErrorInner::ModuleBuild(e.to_string())))?;
 
-        crate::guest::mem_print("after serialize");
-
         let module = self
             .builder
             .from_serialized_module(serialized_module.clone())?;
 
-        crate::guest::mem_print("after from_serialized_module");
-
         // Save serialized module to filesystem cache
         self.add_to_filesystem(key, serialized_module)?;
 
-        crate::guest::mem_print("after add_to_filesystem");
-
         // Save module to in-memory cache
         self.add_to_cache(key, module.clone());
-
-        crate::guest::mem_print("after add_to_cache");
 
         Ok(module)
     }

@@ -12,15 +12,7 @@ use wasmer::Value;
 use wasmer::WasmSlice;
 
 #[global_allocator]
-static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
-
-pub fn mem_print(message: &str) {
-    println!("[MALLOC] {message}: {}B", ALLOCATOR.allocated());
-}
-
-pub fn mem_print_for(fn_name: &str, message: &str) {
-    println!("[MALLOC] [{fn_name}] {message}: {}B", ALLOCATOR.allocated());
-}
+pub static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
 
 /// Write a slice of bytes to the guest in a safe-ish way.
 ///
@@ -151,6 +143,7 @@ where
     I: serde::Serialize + std::fmt::Debug,
     O: serde::de::DeserializeOwned + std::fmt::Debug,
 {
+    let allocated = ALLOCATOR.allocated();
     // The guest will use the same crate for decoding if it uses the wasm common crate.
     let payload: Vec<u8> =
         holochain_serialized_bytes::encode(&input).map_err(|e| wasm_error!(e))?;
@@ -162,7 +155,13 @@ where
         .map_err(|e: TryFromIntError| wasm_error!(WasmErrorInner::CallError(e.to_string())))?;
     let guest_input_length_value: Value = Value::I32(guest_input_length);
 
-    mem_print_for(f, "Before calling __hc_allocate for");
+    println!(
+        "[MALLOC] [{f}] encode: before {}B, after {}B, difference {}B",
+        allocated,
+        ALLOCATOR.allocated(),
+        ALLOCATOR.allocated() as isize - allocated as isize
+    );
+    let allocated = ALLOCATOR.allocated();
 
     let (guest_input_ptr, guest_input_ptr_value) = match instance
         .exports
@@ -188,7 +187,13 @@ where
         }
     };
 
-    mem_print_for(f, "Before calling write_bytes for");
+    println!(
+        "[MALLOC] [{f}] __hc_allocate: before {}B, after {}B, difference {}B",
+        allocated,
+        ALLOCATOR.allocated(),
+        ALLOCATOR.allocated() as isize - allocated as isize
+    );
+    let allocated = ALLOCATOR.allocated();
 
     // Write the input payload into the guest at the offset specified by the allocation.
     write_bytes(
@@ -201,18 +206,32 @@ where
         &payload,
     )?;
 
-    mem_print_for(f, "Before call");
+    println!(
+        "[MALLOC] [{f}] get_memory(): before {}B, after {}B, difference {}B",
+        allocated,
+        ALLOCATOR.allocated(),
+        ALLOCATOR.allocated() as isize - allocated as isize
+    );
+    let allocated = ALLOCATOR.allocated();
 
     // Call the guest function with its own pointer to its input.
     // Collect the guest's pointer to its output.
-    let (guest_return_ptr, len): (GuestPtr, Len) = match instance
+    let r = instance
         .exports
         .get_function(f)
         .map_err(|e| wasm_error!(WasmErrorInner::CallError(e.to_string())))?
         .call(
             store_mut,
             &[guest_input_ptr_value, guest_input_length_value],
-        ) {
+        );
+
+    println!(
+        "[MALLOC] [{f}] call: before {}B, after {}B, difference {}B",
+        allocated,
+        ALLOCATOR.allocated(),
+        ALLOCATOR.allocated() as isize - allocated as isize
+    );
+    let (guest_return_ptr, len): (GuestPtr, Len) = match r {
         Ok(v) => match v.first() {
             Some(Value::I64(i)) => {
                 let u: GuestPtrLen = (*i)
@@ -244,7 +263,7 @@ where
         },
     };
 
-    mem_print_for(f, "Before from_guest_ptr");
+    let allocated = ALLOCATOR.allocated();
 
     // We ? here to return early WITHOUT calling deallocate.
     // The host MUST discard any wasm instance that errors at this point to avoid memory leaks.
@@ -259,7 +278,14 @@ where
         len,
     )?;
 
-    mem_print_for(f, "Before deallocate");
+    println!(
+        "[MALLOC] [{f}] from_guest_ptr: before {}B, after {}B, difference {}B",
+        allocated,
+        ALLOCATOR.allocated(),
+        ALLOCATOR.allocated() as isize - allocated as isize
+    );
+
+    let allocated = ALLOCATOR.allocated();
 
     // Tell the guest we are finished with the return pointer's data.
     instance
@@ -282,7 +308,12 @@ where
         )
         .map_err(|e| wasm_error!(WasmErrorInner::CallError(format!("{:?}", e))))?;
 
-    mem_print_for(f, "After deallocate");
+    println!(
+        "[MALLOC] [{f}] __hc_dealocate: before {}B, after {}B, difference {}B",
+        allocated,
+        ALLOCATOR.allocated(),
+        ALLOCATOR.allocated() as isize - allocated as isize
+    );
 
     return_value.map_err(|e| WasmHostError(e).into())
 }

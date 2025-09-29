@@ -10,6 +10,8 @@ use wasmer::MemoryView;
 use wasmer::StoreMut;
 use wasmer::Value;
 use wasmer::WasmSlice;
+use wasmer_middlewares::metering::get_remaining_points;
+use wasmer_middlewares::metering::MeteringPoints;
 
 #[global_allocator]
 pub static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
@@ -213,6 +215,7 @@ where
         ALLOCATOR.allocated() as isize - allocated as isize
     );
     let allocated = ALLOCATOR.allocated();
+    let start_remaining_points = get_remaining_points(store_mut, &instance);
 
     // Call the guest function with its own pointer to its input.
     // Collect the guest's pointer to its output.
@@ -230,6 +233,20 @@ where
         allocated,
         ALLOCATOR.allocated(),
         ALLOCATOR.allocated() as isize - allocated as isize
+    );
+
+    let end_remaining_points = get_remaining_points(store_mut, &instance);
+
+    let difference = match (&start_remaining_points, &end_remaining_points) {
+        (MeteringPoints::Remaining(s), MeteringPoints::Remaining(e)) => {
+            e.clone() as isize - s.clone() as isize
+        }
+        _ => 0,
+    };
+
+    println!(
+        "[MALLOC] [{f}] remaining points: start {start_remaining_points:?}, end {end_remaining_points:?}, difference {}",
+        difference
     );
     let (guest_return_ptr, len): (GuestPtr, Len) = match r {
         Ok(v) => match v.first() {
@@ -309,7 +326,7 @@ where
         .map_err(|e| wasm_error!(WasmErrorInner::CallError(format!("{:?}", e))))?;
 
     println!(
-        "[MALLOC] [{f}] __hc_dealocate: before {}B, after {}B, difference {}B",
+        "[MALLOC] [{f}] __hc_deallocate: before {}B, after {}B, difference {}B",
         allocated,
         ALLOCATOR.allocated(),
         ALLOCATOR.allocated() as isize - allocated as isize
